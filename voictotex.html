@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Voice Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background-color: #0f172a; /* Deep slate base */
+        }
+
+        /* Enhanced Animated Mesh Background */
+        .bg-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f172a 100%);
+            overflow: hidden;
+        }
+
+        .bg-blob {
+            position: absolute;
+            filter: blur(100px);
+            z-index: -1;
+            opacity: 0.5;
+            border-radius: 50%;
+            animation: float 25s infinite alternate ease-in-out;
+        }
+
+        /* Color Combo: Electric Purple, Deep Indigo, and Cyber Cyan */
+        .blob-1 {
+            width: 600px;
+            height: 600px;
+            background: #4f46e5;
+            top: -10%;
+            left: -10%;
+            animation-duration: 20s;
+        }
+
+        .blob-2 {
+            width: 500px;
+            height: 500px;
+            background: #a855f7;
+            bottom: -5%;
+            right: -5%;
+            animation-delay: -5s;
+            animation-duration: 25s;
+        }
+
+        .blob-3 {
+            width: 400px;
+            height: 400px;
+            background: #06b6d4;
+            top: 30%;
+            right: 15%;
+            animation-delay: -2s;
+            animation-duration: 18s;
+            opacity: 0.3;
+        }
+
+        /* Subtle Noise Texture Overlay */
+        .bg-noise {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            opacity: 0.03;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+            33% { transform: translate(100px, 50px) scale(1.1) rotate(10deg); }
+            66% { transform: translate(-50px, 80px) scale(0.9) rotate(-10deg); }
+            100% { transform: translate(20px, -20px) scale(1.05) rotate(5deg); }
+        }
+
+        .recording-pulse {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .7; transform: scale(1.05); }
+        }
+
+        /* Glassmorphism Refinement for Dark Theme */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-light {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Custom Scrollbar for the dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+
+    <!-- Background Design -->
+    <div class="bg-canvas">
+        <div class="bg-blob blob-1"></div>
+        <div class="bg-blob blob-2"></div>
+        <div class="bg-blob blob-3"></div>
+        <div class="bg-noise"></div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 py-8 relative z-10">
+        <!-- Header -->
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-6 rounded-3xl shadow-sm">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-microphone-lines text-indigo-400"></i>
+                    Bable Flow
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">Speech-to-text and vice versa</p>
+            </div>
+            <div id="statusIndicator" class="text-xs text-slate-300 bg-white/10 px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 font-medium">
+                <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]"></span>
+                System Operational
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <!-- Settings Panel -->
+            <div class="md:col-span-4 space-y-6">
+                <div class="glass-panel p-5 rounded-3xl shadow-sm">
+                    <h3 class="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i class="fas fa-sliders"></i> Configuration
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-2">Target Language</label>
+                            <select id="targetLang" class="w-full p-3 bg-white/10 border border-white/10 rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer">
+                                <optgroup label="Indian Languages" class="bg-slate-900 text-white">
+                                    <option value="Hindi" selected>Hindi (हिन्दी)</option>
+                                    <option value="Bengali">Bengali (বাংলা)</option>
+                                    <option value="Telugu">Telugu (తెలుగు)</option>
+                                    <option value="Marathi">Marathi (मराठी)</option>
+                                    <option value="Tamil">Tamil (தமிழ்)</option>
+                                    <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                                    <option value="Urdu">Urdu (اردو)</option>
+                                    <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                                    <option value="Malayalam">Malayalam (മലയാളം)</option>
+                                    <option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option>
+                                    <option value="Sanskrit">Sanskrit (संस्कृतम्)</option>
+                                </optgroup>
+                                <optgroup label="Global" class="bg-slate-900 text-white">
+                                    <option value="English">English</option>
+                                    <option value="Spanish">Spanish</option>
+                                    <option value="French">French</option>
+                                    <option value="Japanese">Japanese</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <div class="h-px bg-white/10 my-2"></div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-2">Voice Tone</label>
+                            <select id="voiceModel" class="w-full p-3 bg-white/10 border border-white/10 rounded-2xl text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer">
+                                <option value="Kore" class="bg-slate-900">Kore (Neutral)</option>
+                                <option value="Zephyr" class="bg-slate-900">Zephyr (Warm)</option>
+                                <option value="Puck" class="bg-slate-900">Puck (Cheerful)</option>
+                                <option value="Charon" class="bg-slate-900">Charon (Deep)</option>
+                                <option value="Aoede" class="bg-slate-900">Aoede (Bright)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-600 p-6 rounded-3xl shadow-lg text-white">
+                    <h4 class="font-bold mb-2 flex items-center gap-2">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                        Unified Engine
+                    </h4>
+                    <p class="text-[11px] text-indigo-100 leading-relaxed">
+                       This converts speech-to-speech and text and text to speech and translates from one to other Language
+                    </p>
+                </div>
+            </div>
+
+            <!-- Main Interface -->
+            <div class="md:col-span-8 space-y-6">
+                <!-- Mode Selector -->
+                <div class="flex glass-panel p-1 rounded-2xl shadow-sm w-full">
+                    <button onclick="switchMode('tts')" id="ttsBtn" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all bg-indigo-500 text-white shadow-lg">
+                        <i class="fas fa-keyboard mr-2"></i> Text Mode
+                    </button>
+                    <button onclick="switchMode('stt')" id="sttBtn" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white hover:bg-white/5">
+                        <i class="fas fa-microphone mr-2"></i> Voice Mode
+                    </button>
+                </div>
+
+                <!-- Input Section -->
+                <div id="ttsSection" class="glass-panel p-6 rounded-3xl shadow-sm space-y-4">
+                    <label class="font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fas fa-pen-to-square text-indigo-400"></i> Write Something
+                    </label>
+                    <textarea id="textInput" class="w-full h-44 p-5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-white/5 text-white placeholder-slate-500 font-medium transition-all" placeholder="Type text to translate and speak..."></textarea>
+                    
+                    <button id="generateBtn" onclick="handleProcessing()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-indigo-900/20 disabled:opacity-50 disabled:scale-100">
+                        <i class="fas fa-play-circle"></i>
+                        <span>Process & Output</span>
+                    </button>
+                </div>
+
+                <!-- Record Section -->
+                <div id="sttSection" class="hidden glass-panel p-6 rounded-3xl shadow-sm space-y-6 text-center">
+                    <label class="font-bold text-slate-200 flex items-center justify-center gap-2">
+                        <i class="fas fa-microphone text-red-400"></i> Voice Input
+                    </label>
+                    
+                    <div class="flex flex-col items-center justify-center py-12 border-2 border-dashed border-white/10 rounded-3xl bg-white/5 space-y-6">
+                        <button id="recordBtn" onclick="toggleRecording()" class="w-24 h-24 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-95 transition-all relative">
+                            <i id="recordIcon" class="fas fa-microphone text-3xl"></i>
+                        </button>
+                        <p id="recordStatus" class="text-sm font-bold text-slate-400 uppercase tracking-widest">Click to Record</p>
+                    </div>
+                </div>
+
+                <!-- Display Results -->
+                <div id="resultBox" class="hidden space-y-4 animate-in fade-in duration-500 slide-in-from-bottom-4">
+                    <div class="glass-panel p-6 rounded-3xl shadow-sm border-l-4 border-indigo-500">
+                        <h4 id="resultLabel" class="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-3">Translation (Native Script)</h4>
+                        <div id="resultText" class="text-xl font-bold text-white leading-relaxed"></div>
+                    </div>
+                </div>
+
+                <audio id="audioPlayer" class="hidden" controls></audio>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error UI -->
+    <div id="errorToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-red-500/30 text-white px-6 py-4 rounded-2xl shadow-2xl hidden z-50 items-center gap-4 animate-in fade-in slide-in-from-bottom-10">
+        <i class="fas fa-exclamation-triangle text-red-400"></i>
+        <span id="errorMsg" class="text-sm font-medium">Error</span>
+    </div>
+
+    <script>
+        const apiKey = ""; // Provided at runtime
+        let currentMode = 'tts';
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        async function getTranslation(text, targetLang) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const prompt = `Translate this to ${targetLang}. Use native script. Return ONLY the translation text. Original Text: "${text}"`;
+            
+            const response = await fetchWithRetry(url, {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            });
+            
+            const result = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (!result) throw new Error("Could not translate. The AI response was empty.");
+            return result;
+        }
+
+        async function speakGemini(translatedText, targetLang, voice) {
+            if (!translatedText) return;
+            
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const prompt = `Speak the following ${targetLang} text clearly: "${translatedText}"`;
+
+            const response = await fetchWithRetry(url, {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
+                    }
+                }
+            });
+
+            const audioData = response?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+            if (audioData) {
+                const binary = atob(audioData);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                
+                const blob = pcmToWav(bytes, 24000);
+                playAudioBlob(blob);
+            }
+        }
+
+        function playAudioBlob(blob) {
+            const player = document.getElementById('audioPlayer');
+            const url = URL.createObjectURL(blob);
+            player.src = url;
+            player.onended = () => URL.revokeObjectURL(url);
+            player.play().catch(e => console.error("Playback failed", e));
+        }
+
+        async function handleProcessing() {
+            const input = document.getElementById('textInput').value.trim();
+            const target = document.getElementById('targetLang').value;
+            const voice = document.getElementById('voiceModel').value;
+            
+            if (!input) return;
+
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner animate-spin"></i> Processing...`;
+
+            try {
+                const translated = await getTranslation(input, target);
+                displayResult(translated);
+                await speakGemini(translated, target, voice);
+            } catch (e) {
+                showError(e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-play-circle"></i> <span>Process & Output</span>`;
+            }
+        }
+
+        async function processVoiceInput(blob) {
+            const target = document.getElementById('targetLang').value;
+            const voice = document.getElementById('voiceModel').value;
+            const status = document.getElementById('recordStatus');
+            status.textContent = "Analyzing Speech...";
+
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onload = async () => {
+                const base64Data = reader.result.split(',')[1];
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                
+                try {
+                    const response = await fetchWithRetry(url, {
+                        contents: [{
+                            role: "user",
+                            parts: [
+                                { text: `Please transcribe exactly what is said in this audio. If the speech is not in ${target}, translate the transcription into ${target} native script. Return ONLY the final text.` },
+                                { inlineData: { mimeType: "audio/webm", data: base64Data } }
+                            ]
+                        }]
+                    });
+
+                    const translated = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                    if (!translated) throw new Error("Could not understand audio or result was empty.");
+
+                    displayResult(translated);
+                    status.textContent = "Synthesizing Voice...";
+                    await speakGemini(translated, target, voice);
+                } catch (e) {
+                    showError(e.message);
+                } finally {
+                    status.textContent = "Click to Record";
+                    document.getElementById('recordIcon').className = "fas fa-microphone text-3xl";
+                }
+            };
+        }
+
+        async function fetchWithRetry(url, body, retries = 5) {
+            let lastError = new Error("API Connection failed.");
+            let delay = 1000;
+            
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        return data;
+                    }
+
+                    if (res.status === 429 || res.status >= 500) {
+                        lastError = new Error(data?.error?.message || `Server error (${res.status})`);
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                        continue;
+                    }
+                    
+                    throw new Error(data?.error?.message || "API Error");
+                } catch (e) {
+                    lastError = e;
+                    if (i === retries - 1) throw lastError;
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+            throw lastError;
+        }
+
+        function pcmToWav(pcmData, sampleRate = 24000) {
+            const buffer = new ArrayBuffer(44 + pcmData.length);
+            const view = new DataView(buffer);
+            const writeString = (o, s) => { for (let i=0; i<s.length; i++) view.setUint8(o+i, s.charCodeAt(i)); };
+            writeString(0, 'RIFF');
+            view.setUint32(4, 32 + pcmData.length, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, pcmData.length, true);
+            const pcm8 = new Uint8Array(pcmData);
+            for (let i=0; i<pcmData.length; i++) view.setUint8(44+i, pcm8[i]);
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('ttsSection').classList.toggle('hidden', mode !== 'tts');
+            document.getElementById('sttSection').classList.toggle('hidden', mode !== 'stt');
+            document.getElementById('ttsBtn').className = mode === 'tts' ? 'flex-1 py-3 rounded-xl text-sm font-bold transition-all bg-indigo-500 text-white shadow-lg' : 'flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white hover:bg-white/5';
+            document.getElementById('sttBtn').className = mode === 'stt' ? 'flex-1 py-3 rounded-xl text-sm font-bold transition-all bg-indigo-500 text-white shadow-lg' : 'flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white hover:bg-white/5';
+        }
+
+        function toggleRecording() {
+            if (isRecording) {
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+                isRecording = false;
+                document.getElementById('recordBtn').classList.remove('bg-red-500', 'recording-pulse');
+                document.getElementById('recordIcon').className = "fas fa-spinner animate-spin text-3xl";
+                return;
+            }
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => processVoiceInput(new Blob(audioChunks, { type: 'audio/webm' }));
+                mediaRecorder.start();
+                isRecording = true;
+                document.getElementById('recordBtn').classList.add('bg-red-500', 'recording-pulse');
+                document.getElementById('recordIcon').className = "fas fa-square text-3xl";
+                document.getElementById('recordStatus').textContent = "Listening...";
+            }).catch((err) => {
+                showError("Microphone access denied. Please allow permissions.");
+            });
+        }
+
+        function displayResult(text) {
+            if (!text) return;
+            document.getElementById('resultText').textContent = text;
+            document.getElementById('resultBox').classList.remove('hidden');
+        }
+
+        function showError(msg) {
+            const toast = document.getElementById('errorToast');
+            document.getElementById('errorMsg').textContent = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 5000);
+        }
+    </script>
+</body>
+</html>
