@@ -1,0 +1,8 @@
+
+{
+  "name": "Neural Nexus: AI Gesture Studio",
+  "description": "A cutting-edge real-time hand gesture recognition studio using MediaPipe for low-latency tracking and Gemini AI for contextual analysis and interaction.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
